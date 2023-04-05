@@ -1,0 +1,11 @@
+gym-tetris
+tensorboardX
+pyglet==1.5.1
+torchsummary
+optuna
+optuna-dashboard
+setuptools==65.5.1
+gym==0.21.0
+stable-baselines3[extra]
+pyvirtualdisplay
+jupyter
