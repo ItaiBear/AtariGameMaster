@@ -10,3 +10,7 @@ We also started the Deep Reinforcement Learning course by Huggingface, which had
 ### January
 We finished the the course by David Silver.    
 Due to the exam period we werent able to finish the Huggingface course, but we are on our way to do so.
+### February
+We finished the Hugginface course, began search for what game to solve
+### March
+Found tetris emulator. Began training Deep Q Learning model to play the game.
