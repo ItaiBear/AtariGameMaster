@@ -53,13 +53,26 @@ for mode in {'A', 'B'}:
         },
         nondeterministic=True,
     )
-    # v4: reward custom score
+    # v4: reward custom cost
     gym.envs.registration.register(
         id='Tetris{}-v4'.format(mode),
         entry_point='gym_tetris:TetrisEnv',
         kwargs={
             'b_type': b_type,
             'reward_score': False,
+            'reward_lines': False,
+            'penalize_height': False,
+            'custom_reward': True,
+        },
+        nondeterministic=True,
+    )
+    # v5: reward custom cost, score
+    gym.envs.registration.register(
+        id='Tetris{}-v5'.format(mode),
+        entry_point='gym_tetris:TetrisEnv',
+        kwargs={
+            'b_type': b_type,
+            'reward_score': True,
             'reward_lines': False,
             'penalize_height': False,
             'custom_reward': True,

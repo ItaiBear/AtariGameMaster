@@ -183,17 +183,17 @@ class TetrisEnv(NESEnv):
         # take to sum to determine the height of the board
         return board.sum()
     
-    @property
-    def _cost(self):
+    def cost(self):
         """Return the cost of the current state."""
         board = self._board
-        width = board.shape[1]
+        width = 10
         # set the sentinel value for "empty" to 0
+        board[board != 239] = 1
         board[board == 239] = 0
         counts = np.count_nonzero(board, axis=1)
         counts = counts[counts > 0]
         counts = width - counts
-        cost = np.dot(counts, np.arange(counts.size) + 1)
+        cost = np.dot(counts, np.arange(counts.size, 0, step=-1))
         return cost
 
     # MARK: RAM Hacks
@@ -247,7 +247,7 @@ class TetrisEnv(NESEnv):
             if penalty > 0:
                 reward -= penalty
         if self._custom_reward:
-            cost = self._cost
+            cost = self.cost()
             reward += self._current_cost - cost
             self._current_cost = cost
         # update the locals

@@ -1,5 +1,9 @@
 # .gitignore
 
+# Tensorboard logs
+tetris-dqn/runs/
+tetris-dqn/videos/
+
 # Python files
 __py*__
 *.pyc
