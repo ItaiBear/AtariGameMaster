@@ -79,6 +79,39 @@ for mode in {'A', 'B'}:
         },
         nondeterministic=True,
     )
+    # v6: reward score, cumulative height, holes, bumpiness, penalize height
+    gym.envs.registration.register(
+        id='Tetris{}-v6'.format(mode),
+        entry_point='gym_tetris:TetrisEnv',
+        kwargs={
+            'b_type': b_type,
+            'reward_score': True,
+            'reward_lines': False,
+            'penalize_height': True,
+            'custom_reward': False,
+            'reward_cumulative_height': False,
+            'reward_holes': True,
+            'reward_bumpiness': True,
+        },
+        nondeterministic=True,
+    )
+    # v7:
+    gym.envs.registration.register(
+        id='Tetris{}-v7'.format(mode),
+        entry_point='gym_tetris:TetrisEnv',
+        kwargs={
+            'b_type': b_type,
+            'reward_score': True,
+            'reward_lines': False,
+            'penalize_height': True,
+            'custom_reward': False,
+            'reward_cumulative_height': False,
+            'reward_holes': False,
+            'reward_bumpiness': True,
+            'reward_transitions': True,
+        },
+        nondeterministic=True,
+    )
     
 
 

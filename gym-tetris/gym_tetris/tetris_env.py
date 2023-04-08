@@ -48,6 +48,10 @@ class TetrisEnv(NESEnv):
         reward_lines: bool = True,
         penalize_height: bool = True,
         custom_reward: bool = False,
+        reward_cumulative_height: bool = False,
+        reward_holes: bool = False,
+        reward_bumpiness: bool = False,
+        reward_transitions: bool = False,
         deterministic: bool = False,
     ) -> None:
         """
@@ -74,6 +78,14 @@ class TetrisEnv(NESEnv):
         self._current_height = 0
         self._custom_reward = custom_reward
         self._current_cost = 0
+        self._reward_cumulative_height = reward_cumulative_height
+        self._current_cumulative_height = 0
+        self._reward_holes = reward_holes
+        self._current_holes = 0
+        self._reward_bumpiness = reward_bumpiness
+        self._current_bumpiness = 0
+        self._reward_transitions = reward_transitions
+        self._current_transitions = 0
         self.deterministic = True  # Always use a deterministic starting point.
         # reset the emulator, skip the start screen, and backup the state
         self.reset()
@@ -194,7 +206,8 @@ class TetrisEnv(NESEnv):
         counts = counts[counts > 0]
         counts = width - counts
         cost = np.dot(counts, np.arange(counts.size, 0, step=-1))
-        return cost
+        #cost = np.sum(counts)
+        return cost 
 
     # MARK: RAM Hacks
 
@@ -229,26 +242,130 @@ class TetrisEnv(NESEnv):
         self._current_score = 0
         self._current_lines = 0
         self._current_height = 0
-        self._cost = 0
+        self._current_cost = 0
+        self._current_holes = 0
+        self._current_bumpiness = 0
+        self._current_cumulative_height = 0
+        self._current_transitions = 0
+
+    def cumulative_height(self, board):
+        filled_cells = np.where(board == 1)
+        return np.sum(np.unique(filled_cells[0], return_counts=True)[1])
+
+    # def hole_count(self, board):
+    #     filled_cells = np.where(board == 1)
+    #     hole_count = 0
+    #     for row, col in zip(*filled_cells):
+    #         hole_count += np.sum(board[row + 1:, col] == 0)
+    #     return hole_count
+    
+    def hole_count(self, board):
+        rows, cols = board.shape
+
+        # Find the skyline for each column
+        skyline = np.argmax(board, axis=0)
+        skyline[np.all(board == 0, axis=0)] = rows
+
+        # Create a mask for empty cells
+        empty_cells = board == 0
+
+        # Check if empty cells are above or at the skyline
+        above_skyline = np.less.outer(np.arange(rows), skyline)
+
+        # Check if empty cells are accessible from the left or right
+        left_accessible = np.hstack([np.ones((rows, 1), dtype=bool), empty_cells[:, :-1]])
+        right_accessible = np.hstack([empty_cells[:, 1:], np.ones((rows, 1), dtype=bool)])
+
+        # Combine all accessibility conditions
+        accessible = above_skyline | left_accessible | right_accessible
+
+        # Count holes by selecting only non-accessible empty cells
+        hole_count = np.sum(empty_cells & ~accessible)
+
+        return hole_count
+
+    # def bumpiness(self, board):
+    #     col_heights = len(board) - np.argmax(board == 1, axis=0)
+    #     return np.sum(np.abs(np.diff(col_heights)))
+    
+    def bumpiness(self, board):
+        rows, cols = board.shape
+
+        # Find the skyline for each column
+        skyline = np.argmax(board, axis=0)
+        skyline[np.all(board == 0, axis=0)] = rows
+
+        # Calculate bumpiness by summing the base-2 exponentials of height differences
+        height_diffs = np.diff(skyline)
+        height_diffs[height_diffs < 3] = 0
+        bumpiness = np.sum(np.square(height_diffs)) / 2
+
+        return bumpiness
+    
+    def transitions(self, board):
+        rows, cols = board.shape
+
+        # Count horizontal transitions
+        horizontal_transitions = np.sum(np.abs(np.diff(board, axis=1)))
+
+        # Count vertical transitions
+        vertical_transitions = np.sum(np.abs(np.diff(board, axis=0)))
+
+        # Combine horizontal and vertical transitions
+        total_transitions = horizontal_transitions + vertical_transitions
+        return total_transitions
 
     def _get_reward(self):
         """Return the reward after a step occurs."""
+        board = self._board
+        # set the sentinel value for "empty" to 0
+        board[board != 239] = 1
+        board[board == 239] = 0
         reward = 0
         # reward the change in score
         if self._reward_score:
-            reward += self._score - self._current_score
+            reward += (self._score - self._current_score)
+
         # reward a line being cleared
         if self._reward_lines:
             reward += self._number_of_lines - self._current_lines
+
         # penalize a change in height
         if self._penalize_height:
             penalty = self._board_height - self._current_height
             # only apply the penalty for an increase in height (not a decrease)
-            if penalty > 0:
-                reward -= penalty
+            #if penalty > 0:
+            reward -= penalty
+
+        if self._reward_cumulative_height:
+            cumulative_height = self.cumulative_height(board)
+            change = self._current_cumulative_height - cumulative_height
+            reward += change
+            self._current_cumulative_height = cumulative_height
+
+        if self._reward_holes:
+            hole_count = self.hole_count(board)
+            change = self._current_holes - hole_count
+            reward += change
+            self._current_holes = hole_count
+
+        if self._reward_bumpiness:
+            bumpiness = self.bumpiness(board)
+            change = self._current_bumpiness - bumpiness
+            reward += change
+            self._current_bumpiness = bumpiness
+        
+        if self._reward_transitions:
+            transitions = self.transitions(board)
+            change = self._current_transitions - transitions
+            reward += change
+            self._current_transitions = transitions
+        
         if self._custom_reward:
             cost = self.cost()
-            reward += self._current_cost - cost
+            cost_reward = self._current_cost - cost
+            if cost_reward > 0:
+                reward += cost_reward
             self._current_cost = cost
         # update the locals
         self._current_score = self._score
