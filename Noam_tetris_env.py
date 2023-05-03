@@ -183,6 +183,14 @@ class TetrisEnv(NESEnv):
         # take to sum to determine the height of the board
         return board.sum()
     
+    @property
+    def _new_piece(self):
+        """Return true if there is a new being generated"""
+        # Read current game phase from memory
+        game_phase = self.ram[0x0048]
+        # Game phase of 8 corresponds to a new piece
+        return game_phase == 8
+    
     def cost(self):
         """Return the cost of the current state."""
         board = self._board
@@ -270,6 +278,7 @@ class TetrisEnv(NESEnv):
             next_piece=self._next_piece,
             statistics=self._statistics,
             board_height=self._board_height,
+            is_new_piece=self._is_new_piece
         )
 
 
