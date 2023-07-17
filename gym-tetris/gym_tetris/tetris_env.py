@@ -35,6 +35,17 @@ _PIECE_ORIENTATION_TABLE = [
     'Ih',
 ]
 
+# https://meatfighter.com/nintendotetrisai/#Representing_Tetriminos
+_PIECE_SPAWN_ORIENTATION_ID = {
+    'T' : 2,    # Td
+    'J' : 7,    # Jd
+    'Z' : 8,    # Zh
+    'O' : 10,   # O
+    'S' : 11,   # Sh
+    'L' : 14,   # Ld
+    'I' : 18,   # Ih
+}
+
 
 class TetrisEnv(NESEnv):
     """An environment for playing Tetris with OpenAI Gym."""
@@ -195,19 +206,32 @@ class TetrisEnv(NESEnv):
         # take to sum to determine the height of the board
         return board.sum()
     
-    def cost(self):
-        """Return the cost of the current state."""
-        board = self._board
-        width = 10
-        # set the sentinel value for "empty" to 0
-        board[board != 239] = 1
-        board[board == 239] = 0
+    @property
+    def _piece_count(self):
+        """Return the current phase of the game"""
+        piece_counts = self._statistics.values()
+        return np.sum(list(piece_counts))
+    
+    def cost(self, board):
+        """Return a cost for the current board state."""
+        rows, cols = board.shape
         counts = np.count_nonzero(board, axis=1)
-        counts = counts[counts > 0]
-        counts = width - counts
-        cost = np.dot(counts, np.arange(counts.size, 0, step=-1))
+        assert counts.size == rows
+        empty_counts = 10 - counts
+        empty_counts[empty_counts == 10] = 0
+        # empty_counts should contain the number of empty squares in each row with at least one full square, top-to-bottom
+        row_costs = (np.arange(empty_counts.size)+1) / 20.0
+        cost = np.dot(empty_counts, row_costs)
         #cost = np.sum(counts)
         return cost 
+
+    def force_all_pieces(self, piece_char = 'O'):
+        """Force all pieces to be the given piece"""
+        pieceID = _PIECE_SPAWN_ORIENTATION_ID.get(piece_char)
+        return self.ram[0x9939]
+        #self.ram[0x9938] = LDA #$10
+        # self.ram[0x9939] = STA $3E32
+        # self.ram[0x0019] = _PIECE_SPAWN_ORIENTATION_ID.get(piece_char)
 
     # MARK: RAM Hacks
 
@@ -238,6 +262,9 @@ class TetrisEnv(NESEnv):
         for _ in range(14):
             self.ram[0x0017:0x0019] = seed
             self._frame_advance(0)
+        
+        # self.force_all_pieces()
+
         # reset local variables
         self._current_score = 0
         self._current_lines = 0
@@ -257,6 +284,31 @@ class TetrisEnv(NESEnv):
     #     hole_count = 0
     #     for row, col in zip(*filled_cells):
     #         hole_count += np.sum(board[row + 1:, col] == 0)
+    #     return hole_count
+    
+    # def hole_count(self, board):
+    #     rows, cols = board.shape
+
+    #     # Find the skyline for each column
+    #     skyline = np.argmax(board, axis=0)
+    #     skyline[np.all(board == 0, axis=0)] = rows
+
+    #     # Create a mask for empty cells
+    #     empty_cells = board == 0
+
+    #     # Check if empty cells are above or at the skyline
+    #     above_skyline = np.less.outer(np.arange(rows), skyline)
+
+    #     # Check if empty cells are accessible from the left or right
+    #     left_accessible = np.hstack([np.ones((rows, 1), dtype=bool), empty_cells[:, :-1]])
+    #     right_accessible = np.hstack([empty_cells[:, 1:], np.ones((rows, 1), dtype=bool)])
+
+    #     # Combine all accessibility conditions
+    #     accessible = above_skyline | left_accessible | right_accessible
+
+    #     # Count holes by selecting only non-accessible empty cells
+    #     hole_count = np.sum(empty_cells & (1-accessible))
+
     #     return hole_count
     
     def hole_count(self, board):
@@ -280,7 +332,7 @@ class TetrisEnv(NESEnv):
         accessible = above_skyline | left_accessible | right_accessible
 
         # Count holes by selecting only non-accessible empty cells
-        hole_count = np.sum(empty_cells & ~accessible)
+        hole_count = np.sum(empty_cells & (1-accessible))
 
         return hole_count
 
@@ -288,6 +340,7 @@ class TetrisEnv(NESEnv):
     #     col_heights = len(board) - np.argmax(board == 1, axis=0)
     #     return np.sum(np.abs(np.diff(col_heights)))
     
+    # Bumpiness measures the variance in consecutive column heights
     def bumpiness(self, board):
         rows, cols = board.shape
 
@@ -297,9 +350,9 @@ class TetrisEnv(NESEnv):
 
         # Calculate bumpiness by summing the base-2 exponentials of height differences
         height_diffs = np.diff(skyline)
-        height_diffs[height_diffs < 3] = 0
-        bumpiness = np.sum(np.square(height_diffs)) / 2
-
+        # height_diffs[height_diffs < 3] = 0
+        # bumpiness = np.sum(np.square(height_diffs)) / 2
+        bumpiness = np.mean(np.square(height_diffs))
         return bumpiness
     
     def transitions(self, board):
@@ -319,7 +372,7 @@ class TetrisEnv(NESEnv):
         """Return the reward after a step occurs."""
         board = self._board
         # set the sentinel value for "empty" to 0
-        board[board != 239] = 1
+        # board[board != 239] = 1
         board[board == 239] = 0
         reward = 0
         # reward the change in score
@@ -362,10 +415,15 @@ class TetrisEnv(NESEnv):
             self._current_transitions = transitions
         
         if self._custom_reward:
-            cost = self.cost()
+            # cost = self.cost()
+            # cost_reward = self._current_cost - cost
+            # if cost_reward > 0:
+            #     reward += cost_reward
+            # self._current_cost = cost
+            cost = self.cost(board)
+            assert cost >= 0
             cost_reward = self._current_cost - cost
-            if cost_reward > 0:
-                reward += cost_reward
+            reward += cost_reward
             self._current_cost = cost
         # update the locals
         self._current_score = self._score
@@ -386,7 +444,10 @@ class TetrisEnv(NESEnv):
             score=self._score,
             next_piece=self._next_piece,
             statistics=self._statistics,
-            board_height=self._board_height,
+            # board_height=self._board_height,
+            piece_count=self._piece_count,
+            # board=self._board,
+            # piece_id=self.ram[0x00BF]
         )
 
 
