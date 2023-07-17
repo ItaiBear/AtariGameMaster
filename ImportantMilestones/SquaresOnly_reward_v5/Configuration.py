@@ -21,7 +21,6 @@ class FrameSkipEnv(gym.Wrapper):
         obs = self.env.reset()
         return obs
 
-
 BOX = 47, 95, 209, 176
 # Making an environment
 def get_env(env_id, seed, capture_video, run_name, video_freq=100, frame_stack=4):
