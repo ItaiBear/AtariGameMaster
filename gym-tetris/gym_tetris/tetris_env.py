@@ -8,10 +8,6 @@ from nes_py import NESEnv
 _MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-# the path to the Zelda 1 ROM
-_ROM_PATH = os.path.join(_MODULE_DIR, '_roms', 'Tetris.nes')
-
-
 # the table for looking up piece orientations
 _PIECE_ORIENTATION_TABLE = [
     'Tu',
@@ -64,6 +60,7 @@ class TetrisEnv(NESEnv):
         reward_bumpiness: bool = False,
         reward_transitions: bool = False,
         deterministic: bool = False,
+        rom_name: str = 'Tetris.nes'
     ) -> None:
         """
         Initialize a new Tetris environment.
@@ -79,7 +76,8 @@ class TetrisEnv(NESEnv):
             None
 
         """
-        super().__init__(_ROM_PATH)
+        rom_path = os.path.join(_MODULE_DIR, '_roms', rom_name)
+        super().__init__(rom_path)
         self._b_type = b_type
         self._reward_score = reward_score
         self._current_score = 0
@@ -275,9 +273,9 @@ class TetrisEnv(NESEnv):
         self._current_cumulative_height = 0
         self._current_transitions = 0
 
-    def cumulative_height(self, board):
-        filled_cells = np.where(board == 1)
-        return np.sum(np.unique(filled_cells[0], return_counts=True)[1])
+    # def cumulative_height(self, board):
+    #     filled_cells = np.where(board == 1)
+    #     return np.sum(np.unique(filled_cells[0], return_counts=True)[1])
 
     # def hole_count(self, board):
     #     filled_cells = np.where(board == 1)
@@ -390,11 +388,11 @@ class TetrisEnv(NESEnv):
             #if penalty > 0:
             reward -= penalty
 
-        if self._reward_cumulative_height:
-            cumulative_height = self.cumulative_height(board)
-            change = self._current_cumulative_height - cumulative_height
-            reward += change
-            self._current_cumulative_height = cumulative_height
+        # if self._reward_cumulative_height:
+        #     cumulative_height = self.cumulative_height(board)
+        #     change = self._current_cumulative_height - cumulative_height
+        #     reward += change
+        #     self._current_cumulative_height = cumulative_height
 
         if self._reward_holes:
             hole_count = self.hole_count(board)

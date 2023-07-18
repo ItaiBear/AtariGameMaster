@@ -53,16 +53,17 @@ for mode in {'A', 'B'}:
         },
         nondeterministic=True,
     )
-    # v4: reward custom cost
+    # v4: reward custom cost, score and bumpiness
     gym.envs.registration.register(
         id='Tetris{}-v4'.format(mode),
         entry_point='gym_tetris:TetrisEnv',
         kwargs={
             'b_type': b_type,
-            'reward_score': False,
+            'reward_score': True,
             'reward_lines': False,
             'penalize_height': False,
             'custom_reward': True,
+            'reward_bumpiness': True
         },
         nondeterministic=True,
     )
