@@ -98,7 +98,7 @@ class TetrisEnv(NESEnv):
         self.deterministic = True  # Always use a deterministic starting point.
         # reset the emulator, skip the start screen, and backup the state
         self.reset()
-        self._skip_start_screen()
+        self._skip_start_screen(level_9=True)
         self._backup()
         self.reset()
         # Set the deterministic flag after setting up the engine.
@@ -144,7 +144,7 @@ class TetrisEnv(NESEnv):
     
     # MARK: RAM Hacks
 
-    def _skip_start_screen(self):
+    def _skip_start_screen(self, level_9 : bool = False):
         """Press and release start to skip the start screen."""
         # generate a random number for the Tetris RNG
         seed = 0, 0
@@ -158,6 +158,14 @@ class TetrisEnv(NESEnv):
             self._frame_advance(8)
             if self._b_type:
                 self._frame_advance(128)
+            elif level_9:
+                # Move to bottom right option
+                for _ in range(2):
+                    for __ in range(4):
+                        self._frame_advance(0)
+                        self._frame_advance(128)
+                    self._frame_advance(0)
+                    self._frame_advance(32)
             self._frame_advance(0)
 
     # MARK: nes-py API calls
