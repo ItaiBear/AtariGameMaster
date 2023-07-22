@@ -320,7 +320,7 @@ class TetrisEnv(NESEnv):
 
         if self._reward_score:
             new_score = self.get_score()
-            reward += new_score - self._current_score
+            reward += (new_score - self._current_score) / 20
             self._current_score = new_score
 
         if self._reward_lines:
