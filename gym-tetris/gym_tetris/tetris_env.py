@@ -2,11 +2,12 @@
 import os
 import numpy as np
 from nes_py import NESEnv
-
+from typing import Callable
 
 # the directory that houses this module
 _MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+EMPTY = 239
 
 # the table for looking up piece orientations
 _PIECE_ORIENTATION_TABLE = [
@@ -54,11 +55,10 @@ class TetrisEnv(NESEnv):
         reward_score: bool = False,
         reward_lines: bool = True,
         penalize_height: bool = True,
-        custom_reward: bool = False,
-        reward_cumulative_height: bool = False,
-        reward_holes: bool = False,
-        reward_bumpiness: bool = False,
-        reward_transitions: bool = False,
+        penalize_cost: bool = False,
+        penalize_holes: bool = False,
+        penalize_bumpiness: bool = False,
+        penalize_transitions: bool = False,
         deterministic: bool = False,
         rom_name: str = 'Tetris.nes'
     ) -> None:
@@ -79,22 +79,22 @@ class TetrisEnv(NESEnv):
         rom_path = os.path.join(_MODULE_DIR, '_roms', rom_name)
         super().__init__(rom_path)
         self._b_type = b_type
+
         self._reward_score = reward_score
         self._current_score = 0
         self._reward_lines = reward_lines
         self._current_lines = 0
         self._penalize_height = penalize_height
         self._current_height = 0
-        self._custom_reward = custom_reward
+        self._penalize_cost = penalize_cost
         self._current_cost = 0
-        self._reward_cumulative_height = reward_cumulative_height
-        self._current_cumulative_height = 0
-        self._reward_holes = reward_holes
+        self._penalize_holes = penalize_holes
         self._current_holes = 0
-        self._reward_bumpiness = reward_bumpiness
+        self._penalize_bumpiness = penalize_bumpiness
         self._current_bumpiness = 0
-        self._reward_transitions = reward_transitions
+        self._penalize_transitions = penalize_transitions
         self._current_transitions = 0
+
         self.deterministic = True  # Always use a deterministic starting point.
         # reset the emulator, skip the start screen, and backup the state
         self.reset()
@@ -103,6 +103,19 @@ class TetrisEnv(NESEnv):
         self.reset()
         # Set the deterministic flag after setting up the engine.
         self.deterministic = deterministic
+
+    @property
+    def _is_game_over(self):
+        """Return True if the game is over, False otherwise."""
+        return bool(self.ram[0x0058])
+
+    @property
+    def _did_win_game(self):
+        """Return True if game winning frame for B-type game mode."""
+        if self._b_type:
+            return self._number_of_lines == 0
+        else: # can never win the A-type game
+            return False
 
     def _read_bcd(self, address, length, little_endian=True):
         """
@@ -128,109 +141,7 @@ class TetrisEnv(NESEnv):
             value += 10**(2 * idx) * (0x0F & self.ram[ram_idx])
 
         return value
-
-    # MARK: Memory access
-
-    @property
-    def _current_piece(self):
-        """Return the current piece."""
-        try:
-            return _PIECE_ORIENTATION_TABLE[self.ram[0x0042]]
-        except IndexError:
-            return None
-
-    @property
-    def _number_of_lines(self):
-        """Return the number of cleared lines."""
-        return self._read_bcd(0x0050, 2)
-
-    @property
-    def _lines_being_cleared(self):
-        """Return the number of cleared lines."""
-        return self.ram[0x0056]
-
-    @property
-    def _score(self):
-        """Return the current score."""
-        return self._read_bcd(0x0053, 3)
-
-    @property
-    def _is_game_over(self):
-        """Return True if the game is over, False otherwise."""
-        return bool(self.ram[0x0058])
-
-    @property
-    def _did_win_game(self):
-        """Return True if game winning frame for B-type game mode."""
-        if self._b_type:
-            return self._number_of_lines == 0
-        else: # can never win the A-type game
-            return False
-
-    @property
-    def _next_piece(self):
-        """Return the current piece."""
-        try:
-            return _PIECE_ORIENTATION_TABLE[self.ram[0x00BF]]
-        except IndexError:
-            return None
-
-    @property
-    def _statistics(self):
-        """Return the statistics for the Tetrominoes."""
-        return {
-            'T': self._read_bcd(0x03F0, 2),
-            'J': self._read_bcd(0x03F2, 2),
-            'Z': self._read_bcd(0x03F4, 2),
-            'O': self._read_bcd(0x03F6, 2),
-            'S': self._read_bcd(0x03F8, 2),
-            'L': self._read_bcd(0x03FA, 2),
-            'I': self._read_bcd(0x03FC, 2),
-        }
-
-    @property
-    def _board(self):
-        """Return the Tetris board from NES RAM."""
-        return self.ram[0x0400:0x04C8].reshape((20, 10)).copy()
-
-    @property
-    def _board_height(self):
-        """Return the height of the board."""
-        board = self._board
-        # set the sentinel value for "empty" to 0
-        board[board == 239] = 0
-        # look for any piece in any row
-        board = board.any(axis=1)
-        # take to sum to determine the height of the board
-        return board.sum()
     
-    @property
-    def _piece_count(self):
-        """Return the current phase of the game"""
-        piece_counts = self._statistics.values()
-        return np.sum(list(piece_counts))
-    
-    def cost(self, board):
-        """Return a cost for the current board state."""
-        rows, cols = board.shape
-        counts = np.count_nonzero(board, axis=1)
-        assert counts.size == rows
-        empty_counts = 10 - counts
-        empty_counts[empty_counts == 10] = 0
-        # empty_counts should contain the number of empty squares in each row with at least one full square, top-to-bottom
-        row_costs = (np.arange(empty_counts.size)+1) / 20.0
-        cost = np.dot(empty_counts, row_costs)
-        #cost = np.sum(counts)
-        return cost 
-
-    def force_all_pieces(self, piece_char = 'O'):
-        """Force all pieces to be the given piece"""
-        pieceID = _PIECE_SPAWN_ORIENTATION_ID.get(piece_char)
-        return self.ram[0x9939]
-        #self.ram[0x9938] = LDA #$10
-        # self.ram[0x9939] = STA $3E32
-        # self.ram[0x0019] = _PIECE_SPAWN_ORIENTATION_ID.get(piece_char)
-
     # MARK: RAM Hacks
 
     def _skip_start_screen(self):
@@ -260,8 +171,6 @@ class TetrisEnv(NESEnv):
         for _ in range(14):
             self.ram[0x0017:0x0019] = seed
             self._frame_advance(0)
-        
-        # self.force_all_pieces()
 
         # reset local variables
         self._current_score = 0
@@ -270,46 +179,81 @@ class TetrisEnv(NESEnv):
         self._current_cost = 0
         self._current_holes = 0
         self._current_bumpiness = 0
-        self._current_cumulative_height = 0
         self._current_transitions = 0
 
-    # def cumulative_height(self, board):
-    #     filled_cells = np.where(board == 1)
-    #     return np.sum(np.unique(filled_cells[0], return_counts=True)[1])
+    # MARK: Memory access
 
-    # def hole_count(self, board):
-    #     filled_cells = np.where(board == 1)
-    #     hole_count = 0
-    #     for row, col in zip(*filled_cells):
-    #         hole_count += np.sum(board[row + 1:, col] == 0)
-    #     return hole_count
+    def get_board(self):
+        """Return the Tetris board from NES RAM."""
+        return self.ram[0x0400:0x04C8].reshape((20, 10)).copy()
+
+    def get_current_piece(self):
+        """Return the current piece."""
+        try:
+            return _PIECE_ORIENTATION_TABLE[self.ram[0x0042]]
+        except IndexError:
+            return None
+
+    def get_lines_being_cleared(self):
+        """Return the number of cleared lines."""
+        return self.ram[0x0056]
+
+    def get_next_piece(self):
+        """Return the current piece."""
+        try:
+            return _PIECE_ORIENTATION_TABLE[self.ram[0x00BF]]
+        except IndexError:
+            return None
+
+    def get_statistics(self):
+        """Return the statistics for the Tetrominoes."""
+        return {
+            'T': self._read_bcd(0x03F0, 2),
+            'J': self._read_bcd(0x03F2, 2),
+            'Z': self._read_bcd(0x03F4, 2),
+            'O': self._read_bcd(0x03F6, 2),
+            'S': self._read_bcd(0x03F8, 2),
+            'L': self._read_bcd(0x03FA, 2),
+            'I': self._read_bcd(0x03FC, 2),
+        }
     
-    # def hole_count(self, board):
-    #     rows, cols = board.shape
+    def get_piece_count(self):
+        """Return the current phase of the game"""
+        piece_counts = self._statistics.values()
+        return np.sum(list(piece_counts))
 
-    #     # Find the skyline for each column
-    #     skyline = np.argmax(board, axis=0)
-    #     skyline[np.all(board == 0, axis=0)] = rows
+    def get_score(self):
+        """Return the current score."""
+        return self._read_bcd(0x0053, 3)
 
-    #     # Create a mask for empty cells
-    #     empty_cells = board == 0
+    def get_number_of_lines(self):
+        """Return the number of cleared lines."""
+        return self._read_bcd(0x0050, 2)
 
-    #     # Check if empty cells are above or at the skyline
-    #     above_skyline = np.less.outer(np.arange(rows), skyline)
-
-    #     # Check if empty cells are accessible from the left or right
-    #     left_accessible = np.hstack([np.ones((rows, 1), dtype=bool), empty_cells[:, :-1]])
-    #     right_accessible = np.hstack([empty_cells[:, 1:], np.ones((rows, 1), dtype=bool)])
-
-    #     # Combine all accessibility conditions
-    #     accessible = above_skyline | left_accessible | right_accessible
-
-    #     # Count holes by selecting only non-accessible empty cells
-    #     hole_count = np.sum(empty_cells & (1-accessible))
-
-    #     return hole_count
+    def get_board_height(self):
+        """Return the height of the board."""
+        board = self._board
+        # set the sentinel value for "empty" to 0
+        board[board == EMPTY] = 0
+        # look for any piece in any row
+        board = board.any(axis=1)
+        # take to sum to determine the height of the board
+        return board.sum()
     
-    def hole_count(self, board):
+    def get_cost(self, board):
+        """Return a cost for the current board state."""
+        rows, cols = board.shape
+        counts = np.count_nonzero(board, axis=1)
+        assert counts.size == rows
+        empty_counts = 10 - counts
+        empty_counts[empty_counts == 10] = 0
+        # empty_counts should contain the number of empty squares in each row with at least one full square, top-to-bottom
+        row_costs = (np.arange(empty_counts.size)+1) / 20.0
+        cost = np.dot(empty_counts, row_costs)
+        #cost = np.sum(counts)
+        return cost
+
+    def get_hole_count(self, board):
         rows, cols = board.shape
 
         # Find the skyline for each column
@@ -333,13 +277,9 @@ class TetrisEnv(NESEnv):
         hole_count = np.sum(empty_cells & (1-accessible))
 
         return hole_count
-
-    # def bumpiness(self, board):
-    #     col_heights = len(board) - np.argmax(board == 1, axis=0)
-    #     return np.sum(np.abs(np.diff(col_heights)))
     
     # Bumpiness measures the variance in consecutive column heights
-    def bumpiness(self, board):
+    def get_bumpiness(self, board):
         rows, cols = board.shape
 
         # Find the skyline for each column
@@ -347,15 +287,13 @@ class TetrisEnv(NESEnv):
         skyline[np.all(board == 0, axis=0)] = rows
 
         # Calculate bumpiness by summing the base-2 exponentials of height differences
-        height_diffs = np.diff(skyline)
-        # height_diffs[height_diffs < 3] = 0
+        height_diffs = np.square(np.diff(skyline))
+        height_diffs[height_diffs < 9] = 0
         # bumpiness = np.sum(np.square(height_diffs)) / 2
-        bumpiness = np.mean(np.square(height_diffs))
+        bumpiness = np.mean(height_diffs)
         return bumpiness
     
-    def transitions(self, board):
-        rows, cols = board.shape
-
+    def get_transitions(self, board):
         # Count horizontal transitions
         horizontal_transitions = np.sum(np.abs(np.diff(board, axis=1)))
 
@@ -368,65 +306,46 @@ class TetrisEnv(NESEnv):
 
     def _get_reward(self):
         """Return the reward after a step occurs."""
-        board = self._board
+        board = self.get_board()
         # set the sentinel value for "empty" to 0
-        # board[board != 239] = 1
-        board[board == 239] = 0
+        board[board == EMPTY] = 0
+
         reward = 0
-        # reward the change in score
+
         if self._reward_score:
-            reward += (self._score - self._current_score)
+            new_score = self.get_score()
+            reward += new_score - self._current_score
+            self._current_score = new_score
 
-        # reward a line being cleared
         if self._reward_lines:
-            reward += self._number_of_lines - self._current_lines
+            new_lines = self.get_number_of_lines()
+            reward += new_lines - self._current_lines
+            self._current_lines = new_lines
 
-        # penalize a change in height
         if self._penalize_height:
-            penalty = self._board_height - self._current_height
-            # only apply the penalty for an increase in height (not a decrease)
-            #if penalty > 0:
-            reward -= penalty
+            new_height = self.get_board_height()
+            reward -= new_height - self._current_height
+            self._current_height = new_height
 
-        # if self._reward_cumulative_height:
-        #     cumulative_height = self.cumulative_height(board)
-        #     change = self._current_cumulative_height - cumulative_height
-        #     reward += change
-        #     self._current_cumulative_height = cumulative_height
+        if self._penalize_holes:
+            new_holes = self.get_hole_count(board)
+            reward -= new_holes - self._current_holes
+            self._current_holes = new_holes
 
-        if self._reward_holes:
-            hole_count = self.hole_count(board)
-            change = self._current_holes - hole_count
-            reward += change
-            self._current_holes = hole_count
-
-        if self._reward_bumpiness:
-            bumpiness = self.bumpiness(board)
-            change = self._current_bumpiness - bumpiness
-            reward += change
-            self._current_bumpiness = bumpiness
+        if self._penalize_bumpiness:
+            new_bumpiness = self.get_bumpiness(board)
+            reward -= new_bumpiness - self._current_bumpiness
+            self._current_bumpiness = new_bumpiness
         
-        if self._reward_transitions:
-            transitions = self.transitions(board)
-            change = self._current_transitions - transitions
-            reward += change
-            self._current_transitions = transitions
+        if self._penalize_transitions:
+            new_transitions = self.get_transitions(board)
+            reward -= new_transitions - self._current_transitions
+            self._current_transitions = new_transitions
         
-        if self._custom_reward:
-            # cost = self.cost()
-            # cost_reward = self._current_cost - cost
-            # if cost_reward > 0:
-            #     reward += cost_reward
-            # self._current_cost = cost
-            cost = self.cost(board)
-            assert cost >= 0
-            cost_reward = self._current_cost - cost
-            reward += cost_reward
-            self._current_cost = cost
-        # update the locals
-        self._current_score = self._score
-        self._current_lines = self._number_of_lines
-        self._current_height = self._board_height
+        if self._penalize_cost:
+            new_cost = self.get_cost(board)
+            reward -= new_cost - self._current_cost
+            self._current_cost = new_cost
 
         return reward
 
@@ -437,16 +356,16 @@ class TetrisEnv(NESEnv):
     def _get_info(self):
         """Return the info after a step occurs."""
         return dict(
-            current_piece=self._current_piece,
-            number_of_lines=self._number_of_lines,
             score=self._score,
-            next_piece=self._next_piece,
-            statistics=self._statistics,
-            # board_height=self._board_height,
             piece_count=self._piece_count,
+        )
+            # current_piece=self._current_piece,
+            # number_of_lines=self._number_of_lines,
+            # next_piece=self._next_piece,
+            # statistics=self._statistics,
+            # board_height=self._board_height,
             # board=self._board,
             # piece_id=self.ram[0x00BF]
-        )
 
 
 # explicitly define the outward facing API of this module
