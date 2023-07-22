@@ -219,7 +219,7 @@ class TetrisEnv(NESEnv):
     
     def get_piece_count(self):
         """Return the current phase of the game"""
-        piece_counts = self._statistics.values()
+        piece_counts = self.get_statistics().values()
         return np.sum(list(piece_counts))
 
     def get_score(self):
@@ -230,11 +230,8 @@ class TetrisEnv(NESEnv):
         """Return the number of cleared lines."""
         return self._read_bcd(0x0050, 2)
 
-    def get_board_height(self):
+    def get_board_height(self, board):
         """Return the height of the board."""
-        board = self._board
-        # set the sentinel value for "empty" to 0
-        board[board == EMPTY] = 0
         # look for any piece in any row
         board = board.any(axis=1)
         # take to sum to determine the height of the board
@@ -309,6 +306,7 @@ class TetrisEnv(NESEnv):
         board = self.get_board()
         # set the sentinel value for "empty" to 0
         board[board == EMPTY] = 0
+        board[board != 0] = 1
 
         reward = 0
 
@@ -323,7 +321,7 @@ class TetrisEnv(NESEnv):
             self._current_lines = new_lines
 
         if self._penalize_height:
-            new_height = self.get_board_height()
+            new_height = self.get_board_height(board)
             reward -= new_height - self._current_height
             self._current_height = new_height
 
@@ -356,8 +354,8 @@ class TetrisEnv(NESEnv):
     def _get_info(self):
         """Return the info after a step occurs."""
         return dict(
-            score=self._score,
-            piece_count=self._piece_count,
+            score=self.get_score(),
+            piece_count=self.get_piece_count(),
         )
             # current_piece=self._current_piece,
             # number_of_lines=self._number_of_lines,

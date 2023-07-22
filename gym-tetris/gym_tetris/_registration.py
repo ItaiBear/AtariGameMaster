@@ -62,8 +62,8 @@ for mode in {'A', 'B'}:
             'reward_score': True,
             'reward_lines': False,
             'penalize_height': False,
-            'custom_reward': True,
-            'reward_bumpiness': True
+            'penalize_cost': True,
+            'penalize_bumpiness': True
         },
         nondeterministic=True,
     )
@@ -76,7 +76,7 @@ for mode in {'A', 'B'}:
             'reward_score': True,
             'reward_lines': False,
             'penalize_height': False,
-            'custom_reward': True,
+            'penalize_cost': True,
         },
         nondeterministic=True,
     )
@@ -89,10 +89,9 @@ for mode in {'A', 'B'}:
             'reward_score': True,
             'reward_lines': False,
             'penalize_height': True,
-            'custom_reward': False,
-            'reward_cumulative_height': False,
-            'reward_holes': True,
-            'reward_bumpiness': True,
+            'penalize_cost': False,
+            'penalize_holes': True,
+            'penalize_bumpiness': True,
         },
         nondeterministic=True,
     )
@@ -105,11 +104,10 @@ for mode in {'A', 'B'}:
             'reward_score': True,
             'reward_lines': False,
             'penalize_height': True,
-            'custom_reward': False,
-            'reward_cumulative_height': False,
-            'reward_holes': False,
-            'reward_bumpiness': True,
-            'reward_transitions': True,
+            'penalize_cost': False,
+            'penalize_holes': False,
+            'penalize_bumpiness': True,
+            'penalize_transitions': True,
         },
         nondeterministic=True,
     )
