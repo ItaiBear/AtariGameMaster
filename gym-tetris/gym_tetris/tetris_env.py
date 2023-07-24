@@ -9,6 +9,18 @@ _MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 EMPTY = 239
 
+BUTTON_MAP = {
+    'right':  0b10000000,
+    'left':   0b01000000,
+    'down':   0b00100000,
+    'up':     0b00010000,
+    'start':  0b00001000,
+    'select': 0b00000100,
+    'B':      0b00000010,
+    'A':      0b00000001,
+    'NOOP':   0b00000000,
+}
+
 # the table for looking up piece orientations
 _PIECE_ORIENTATION_TABLE = [
     'Tu',
@@ -32,17 +44,9 @@ _PIECE_ORIENTATION_TABLE = [
     'Ih',
 ]
 
-# https://meatfighter.com/nintendotetrisai/#Representing_Tetriminos
-_PIECE_SPAWN_ORIENTATION_ID = {
-    'T' : 2,    # Td
-    'J' : 7,    # Jd
-    'Z' : 8,    # Zh
-    'O' : 10,   # O
-    'S' : 11,   # Sh
-    'L' : 14,   # Ld
-    'I' : 18,   # Ih
-}
-
+BOARD_ROWS, BOARD_COLS = 20,10
+NUM_METRICS = 7
+LINES, HEIGHT, COST, HOLES, BUMPINESS, COL_TRANSITIONS, ROW_TRANSITIONS = range(NUM_METRICS)
 
 class TetrisEnv(NESEnv):
     """An environment for playing Tetris with OpenAI Gym."""
@@ -52,15 +56,15 @@ class TetrisEnv(NESEnv):
 
     def __init__(self,
         b_type: bool = False,
-        reward_score: bool = False,
-        reward_lines: bool = True,
-        penalize_height: bool = True,
-        penalize_cost: bool = False,
-        penalize_holes: bool = False,
-        penalize_bumpiness: bool = False,
-        penalize_transitions: bool = False,
+        # score_weight: float = 1,
+        line_weight: float = 1,
+        height_weight: float = -1,
+        cost_weight: float = -1,
+        holes_weight: float = -1,
+        bumpiness_weight: float = -1,
+        col_transitions_weight: float = -1,
+        row_transitions_weight: float = -1,
         deterministic: bool = False,
-        rom_name: str = 'Tetris.nes'
     ) -> None:
         """
         Initialize a new Tetris environment.
@@ -76,24 +80,20 @@ class TetrisEnv(NESEnv):
             None
 
         """
-        rom_path = os.path.join(_MODULE_DIR, '_roms', rom_name)
+        rom_path = os.path.join(_MODULE_DIR, '_roms', 'Tetris.nes')
         super().__init__(rom_path)
         self._b_type = b_type
 
-        self._reward_score = reward_score
-        self._current_score = 0
-        self._reward_lines = reward_lines
-        self._current_lines = 0
-        self._penalize_height = penalize_height
-        self._current_height = 0
-        self._penalize_cost = penalize_cost
-        self._current_cost = 0
-        self._penalize_holes = penalize_holes
-        self._current_holes = 0
-        self._penalize_bumpiness = penalize_bumpiness
-        self._current_bumpiness = 0
-        self._penalize_transitions = penalize_transitions
-        self._current_transitions = 0
+        self._weights = np.array([line_weight,
+                                  height_weight,
+                                  cost_weight,
+                                  holes_weight,
+                                  bumpiness_weight,
+                                  col_transitions_weight,
+                                  row_transitions_weight])
+        assert NUM_METRICS == self._weights.size
+        # Get metrics for an empty board
+        self._metrics = self.get_metrics(np.zeros((BOARD_ROWS, BOARD_COLS)))
 
         self.deterministic = True  # Always use a deterministic starting point.
         # reset the emulator, skip the start screen, and backup the state
@@ -151,22 +151,31 @@ class TetrisEnv(NESEnv):
         if not self.deterministic:
             seed = self.np_random.randint(0, 255), self.np_random.randint(0, 255)
         # seed = self.np_random.randint(0, 255), self.np_random.randint(0, 255)
+
+        assert level_9 and not self._b_type
+
         # skip garbage screens
         while self.ram[0x00C0] in {0, 1, 2, 3}:
-            # seed the random number generator
-            self.ram[0x0017:0x0019] = seed
-            self._frame_advance(8)
-            if self._b_type:
-                self._frame_advance(128)
-            elif level_9:
-                # Move to bottom right option
+            state = self.ram[0x00C0]
+            if state in {0,1,2}:
+                # Opening Screen, Title screen, Game-Mode Screen
+                self._frame_advance(BUTTON_MAP["NOOP"])
+                self._frame_advance(BUTTON_MAP["start"])
+                self._frame_advance(BUTTON_MAP["NOOP"])
+            else:
+                # Level Select - select level 9
                 for _ in range(2):
-                    for __ in range(4):
-                        self._frame_advance(0)
-                        self._frame_advance(128)
-                    self._frame_advance(0)
-                    self._frame_advance(32)
-            self._frame_advance(0)
+                    # Select bottom right option (level nine)
+                    self._frame_advance(BUTTON_MAP["NOOP"])
+                    for __ in range(8):
+                        self._frame_advance(BUTTON_MAP["right"])
+                        self._frame_advance(BUTTON_MAP["NOOP"])
+                    self._frame_advance(BUTTON_MAP["down"])
+                    self._frame_advance(BUTTON_MAP["NOOP"])
+                # Start game
+                self._frame_advance(BUTTON_MAP["NOOP"])
+                self._frame_advance(BUTTON_MAP["start"])
+                self._frame_advance(BUTTON_MAP["NOOP"])
 
     # MARK: nes-py API calls
 
@@ -180,14 +189,8 @@ class TetrisEnv(NESEnv):
             self.ram[0x0017:0x0019] = seed
             self._frame_advance(0)
 
-        # reset local variables
-        self._current_score = 0
-        self._current_lines = 0
-        self._current_height = 0
-        self._current_cost = 0
-        self._current_holes = 0
-        self._current_bumpiness = 0
-        self._current_transitions = 0
+        # reset metrics
+        self._metrics = self.get_metrics(np.zeros((BOARD_ROWS, BOARD_COLS)))
 
     # MARK: Memory access
 
@@ -229,7 +232,8 @@ class TetrisEnv(NESEnv):
         """Return the current phase of the game"""
         piece_counts = self.get_statistics().values()
         return np.sum(list(piece_counts))
-
+    
+    # Reward Metrics
     def get_score(self):
         """Return the current score."""
         return self._read_bcd(0x0053, 3)
@@ -238,120 +242,86 @@ class TetrisEnv(NESEnv):
         """Return the number of cleared lines."""
         return self._read_bcd(0x0050, 2)
 
-    def get_board_height(self, board):
+    def get_board_height(self, skyline):
         """Return the height of the board."""
-        # look for any piece in any row
-        board = board.any(axis=1)
-        # take to sum to determine the height of the board
-        return board.sum()
+        if self._weights[HEIGHT] < 1e-8:
+            return 0
+        height = BOARD_ROWS - np.min(skyline)
+        # Normalize to keep between 0 and 1
+        return height / 20
     
     def get_cost(self, board):
         """Return a cost for the current board state."""
-        rows, cols = board.shape
+        if abs(self._weights[COST]) < 1e-8:
+            return 0
+        # Number of solid cells in each rows
         counts = np.count_nonzero(board, axis=1)
-        assert counts.size == rows
-        empty_counts = 10 - counts
-        empty_counts[empty_counts == 10] = 0
+        empty_counts = BOARD_COLS - counts
+        empty_counts[empty_counts == BOARD_COLS] = 0
         # empty_counts should contain the number of empty squares in each row with at least one full square, top-to-bottom
-        row_costs = (np.arange(empty_counts.size)+1) / 20.0
+        row_costs = np.arange(empty_counts.size)+1
         cost = np.dot(empty_counts, row_costs)
-        #cost = np.sum(counts)
-        return cost
+        # Normalize to keep (mostly) between 0 and 1
+        return cost / 1600
 
-    def get_hole_count(self, board):
-        rows, cols = board.shape
-
-        # Find the skyline for each column
-        skyline = np.argmax(board, axis=0)
-        skyline[np.all(board == 0, axis=0)] = rows
-
-        # Create a mask for empty cells
-        empty_cells = board == 0
-
-        # Check if empty cells are above or at the skyline
-        above_skyline = np.less.outer(np.arange(rows), skyline)
-
-        # Check if empty cells are accessible from the left or right
-        left_accessible = np.hstack([np.ones((rows, 1), dtype=bool), empty_cells[:, :-1]])
-        right_accessible = np.hstack([empty_cells[:, 1:], np.ones((rows, 1), dtype=bool)])
-
-        # Combine all accessibility conditions
-        accessible = above_skyline | left_accessible | right_accessible
-
-        # Count holes by selecting only non-accessible empty cells
-        hole_count = np.sum(empty_cells & (1-accessible))
-
-        return hole_count
+    def get_hole_count(self, board, skyline):
+        """"Return the number of holes in the board"""
+        if abs(self._weights[HOLES]) < 1e-8:
+            return 0
+        # Create a 2D boolean array that is True wherever cells are empty
+        empty_cells = (board == 0)
+        # Create a 2D boolean array that is True anywhere below the skyline
+        below_skyline = np.greater.outer(np.arange(BOARD_ROWS), skyline)
+        # A hole is any empty cell below the skyline
+        hole_count = np.sum(np.logical_and(empty_cells, below_skyline))
+        # Normalize to keep (mostly) between 0 and 1
+        return hole_count / 100
     
     # Bumpiness measures the variance in consecutive column heights
-    def get_bumpiness(self, board):
-        rows, cols = board.shape
-
-        # Find the skyline for each column
-        skyline = np.argmax(board, axis=0)
-        skyline[np.all(board == 0, axis=0)] = rows
-
+    def get_bumpiness(self, skyline):
+        if abs(self._weights[BUMPINESS]) < 1e-8:
+            return 0
         # Calculate bumpiness by summing the base-2 exponentials of height differences
         height_diffs = np.square(np.diff(skyline))
-        height_diffs[height_diffs < 9] = 0
-        # bumpiness = np.sum(np.square(height_diffs)) / 2
+        # Bumpiness is the average squared height difference
         bumpiness = np.mean(height_diffs)
-        return bumpiness
+        return bumpiness / 100
     
-    def get_transitions(self, board):
-        # Count horizontal transitions
-        horizontal_transitions = np.sum(np.abs(np.diff(board, axis=1)))
+    def get_col_transitions(self, board):
+        """"Return the number of column transitions"""
+        # A column transition is a switch between a solid cell and an empty cell along the same column
+        return np.sum(np.abs(np.diff(board, axis=0))) / 20
+    
+    def get_row_transitions(self, board):
+        # A column transition is a switch between a solid cell and an empty cell along the same column
+        return np.sum(np.abs(np.diff(board, axis=1))) / 20
 
-        # Count vertical transitions
-        vertical_transitions = np.sum(np.abs(np.diff(board, axis=0)))
+    def get_metrics(self, board):
+        # Useful data that many metrics need
+        skyline = np.argmax(board, axis=0)
+        skyline[np.logical_and(skyline == 0, board[0] == 0)] = BOARD_ROWS
 
-        # Combine horizontal and vertical transitions
-        total_transitions = horizontal_transitions + vertical_transitions
-        return total_transitions
+        # Penalize every reward except number of lines by making them negative
+        metrics = np.array([+self.get_number_of_lines(),
+                            -self.get_board_height(skyline),
+                            -self.get_cost(board),
+                            -self.get_hole_count(board, skyline),
+                            -self.get_bumpiness(skyline),
+                            -self.get_col_transitions(board),
+                            -self.get_row_transitions(board)])
+        assert NUM_METRICS == metrics.size
+        return metrics
 
     def _get_reward(self):
         """Return the reward after a step occurs."""
         board = self.get_board()
-        # set the sentinel value for "empty" to 0
-        board[board == EMPTY] = 0
-        board[board != 0] = 1
+        # Set empty cells to 0 and full cells to 1
+        board = np.where(board == EMPTY, 0, 1)
+        assert board.shape == (BOARD_ROWS, BOARD_COLS)
 
-        reward = 0
-
-        if self._reward_score:
-            new_score = self.get_score()
-            reward += (new_score - self._current_score) / 20
-            self._current_score = new_score
-
-        if self._reward_lines:
-            new_lines = self.get_number_of_lines()
-            reward += new_lines - self._current_lines
-            self._current_lines = new_lines
-
-        if self._penalize_height:
-            new_height = self.get_board_height(board)
-            reward -= new_height - self._current_height
-            self._current_height = new_height
-
-        if self._penalize_holes:
-            new_holes = self.get_hole_count(board)
-            reward -= new_holes - self._current_holes
-            self._current_holes = new_holes
-
-        if self._penalize_bumpiness:
-            new_bumpiness = self.get_bumpiness(board)
-            reward -= new_bumpiness - self._current_bumpiness
-            self._current_bumpiness = new_bumpiness
-        
-        if self._penalize_transitions:
-            new_transitions = self.get_transitions(board)
-            reward -= new_transitions - self._current_transitions
-            self._current_transitions = new_transitions
-        
-        if self._penalize_cost:
-            new_cost = self.get_cost(board)
-            reward -= new_cost - self._current_cost
-            self._current_cost = new_cost
+        new_metrics = self.get_metrics(board)
+        reward = np.dot(self._weights, new_metrics - self._metrics)
+        self._metrics = new_metrics
 
         return reward
 
@@ -362,8 +332,9 @@ class TetrisEnv(NESEnv):
     def _get_info(self):
         """Return the info after a step occurs."""
         return dict(
-            score=self.get_score(),
+            # score=self.get_score(),
             piece_count=self.get_piece_count(),
+            lines=self.get_number_of_lines(),
         )
             # current_piece=self._current_piece,
             # number_of_lines=self._number_of_lines,

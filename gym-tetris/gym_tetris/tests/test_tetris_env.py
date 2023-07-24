@@ -7,8 +7,8 @@ class ShouldCreateEnvWithDefaultRewardLines(TestCase):
     def test(self):
         env = TetrisEnv()
         self.assertFalse(env._b_type)
-        self.assertFalse(env._reward_score)
-        self.assertTrue(env._reward_lines)
+        self.assertFalse(env._score_weight)
+        self.assertTrue(env._line_weight)
         self.assertTrue(env._penalize_height)
         self.assertEqual(0, env._current_score)
         self.assertEqual(0, env._current_lines)
@@ -17,28 +17,28 @@ class ShouldCreateEnvWithDefaultRewardLines(TestCase):
 
 class ShouldCreateEnvWithRewardScore(TestCase):
     def test(self):
-        env = TetrisEnv(reward_score=True)
+        env = TetrisEnv(score_weight=True)
         self.assertFalse(env._b_type)
-        self.assertTrue(env._reward_score)
-        self.assertTrue(env._reward_lines)
+        self.assertTrue(env._score_weight)
+        self.assertTrue(env._line_weight)
         self.assertTrue(env._penalize_height)
 
 
 class ShouldCreateEnvWithoutPenalizeHeight(TestCase):
     def test(self):
-        env = TetrisEnv(penalize_height=False)
+        env = TetrisEnv(height_weight=False)
         self.assertFalse(env._b_type)
-        self.assertFalse(env._reward_score)
-        self.assertTrue(env._reward_lines)
+        self.assertFalse(env._score_weight)
+        self.assertTrue(env._line_weight)
         self.assertFalse(env._penalize_height)
 
 
 class ShouldCreateEnvWithoutRewardLines(TestCase):
     def test(self):
-        env = TetrisEnv(reward_lines=False)
+        env = TetrisEnv(line_weight=False)
         self.assertFalse(env._b_type)
-        self.assertFalse(env._reward_score)
-        self.assertFalse(env._reward_lines)
+        self.assertFalse(env._score_weight)
+        self.assertFalse(env._line_weight)
         self.assertTrue(env._penalize_height)
 
 
@@ -46,8 +46,8 @@ class ShouldCreateEnvWithBType(TestCase):
     def test(self):
         env = TetrisEnv(b_type=True)
         self.assertTrue(env._b_type)
-        self.assertFalse(env._reward_score)
-        self.assertTrue(env._reward_lines)
+        self.assertFalse(env._score_weight)
+        self.assertTrue(env._line_weight)
         self.assertTrue(env._penalize_height)
 
 
