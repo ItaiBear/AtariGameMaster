@@ -154,16 +154,19 @@ class TetrisEnv(NESEnv):
 
         assert level_9 and not self._b_type
 
-        # skip garbage screens
+        # Choose level and start game
         while self.ram[0x00C0] in {0, 1, 2, 3}:
+            # seed the random number generator
+            self.ram[0x0017:0x0019] = seed
+            # Check what screen we are in
             state = self.ram[0x00C0]
             if state in {0,1,2}:
-                # Opening Screen, Title screen, Game-Mode Screen
+                # Opening Screen, Title Screen, Game-Mode Screen
                 self._frame_advance(BUTTON_MAP["NOOP"])
                 self._frame_advance(BUTTON_MAP["start"])
                 self._frame_advance(BUTTON_MAP["NOOP"])
             else:
-                # Level Select - select level 9
+                # Level Select Screen - select level 9
                 for _ in range(2):
                     # Select bottom right option (level nine)
                     self._frame_advance(BUTTON_MAP["NOOP"])
