@@ -3,7 +3,13 @@
 # Tensorboard logs
 tetris-dqn/runs/
 tetris-dqn/videos/
+ppo-alog/runs/
+dataset_creation/mps_to_cpu/toNoam
+dataset_creation/mps_to_cpu/toNoamCPU
+dataset_creation/converted_datasets
 
+\~\$*.pptx # ignore powerpoint temp files
+*.pkl
 # Python files
 __py*__
 *.pyc

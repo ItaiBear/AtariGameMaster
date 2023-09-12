@@ -152,21 +152,25 @@ class TetrisEnv(NESEnv):
             seed = self.np_random.randint(0, 255), self.np_random.randint(0, 255)
         # seed = self.np_random.randint(0, 255), self.np_random.randint(0, 255)
         # skip garbage screens
-        while self.ram[0x00C0] in {0, 1, 2, 3}:
+        while self.ram[0x00C0] in {0, 1}:
             # seed the random number generator
             self.ram[0x0017:0x0019] = seed
-            self._frame_advance(8)
-            if self._b_type:
-                self._frame_advance(128)
-            elif level_9:
-                # Move to bottom right option
-                for _ in range(2):
-                    for __ in range(4):
-                        self._frame_advance(0)
-                        self._frame_advance(128)
-                    self._frame_advance(0)
-                    self._frame_advance(32)
             self._frame_advance(0)
+            self._frame_advance(8)
+        assert self.ram[0x00C0] == 2, 'expected game type menu, got {}'.format(self.ram[0x00C0])
+        if self._b_type:
+            self._frame_advance(128)
+        self._frame_advance(0)
+        self._frame_advance(8)
+        if level_9:
+            # Move to bottom right option
+            for _ in range(6):
+                self._frame_advance(0)
+                self._frame_advance(128)
+            self._frame_advance(0)
+            self._frame_advance(32)
+        self._frame_advance(1)
+        self._frame_advance(9)
 
     # MARK: nes-py API calls
 
