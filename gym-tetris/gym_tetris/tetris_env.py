@@ -98,7 +98,7 @@ class TetrisEnv(NESEnv):
         self.deterministic = True  # Always use a deterministic starting point.
         # reset the emulator, skip the start screen, and backup the state
         self.reset()
-        self._skip_start_screen(level_9=True)
+        self._skip_start_screen(level_9=True, level_19=False)
         self._backup()
         self.reset()
         # Set the deterministic flag after setting up the engine.
@@ -144,41 +144,43 @@ class TetrisEnv(NESEnv):
     
     # MARK: RAM Hacks
 
-    def _skip_start_screen(self, level_9 : bool = False):
+    def _skip_start_screen(self, level_9 : bool = False, level_19 : bool = False):
         """Press and release start to skip the start screen."""
         # generate a random number for the Tetris RNG
         seed = 0, 0
         if not self.deterministic:
             seed = self.np_random.randint(0, 255), self.np_random.randint(0, 255)
         # seed = self.np_random.randint(0, 255), self.np_random.randint(0, 255)
-
         assert level_9 and not self._b_type
-
-        # Choose level and start game
-        while self.ram[0x00C0] in {0, 1, 2, 3}:
+        # skip garbage screens
+        while self.ram[0x00C0] in {0, 1}:
             # seed the random number generator
             self.ram[0x0017:0x0019] = seed
-            # Check what screen we are in
-            state = self.ram[0x00C0]
-            if state in {0,1,2}:
-                # Opening Screen, Title Screen, Game-Mode Screen
+            # Opening Screen, Title Screen
+            self._frame_advance(BUTTON_MAP["NOOP"])
+            self._frame_advance(BUTTON_MAP["start"])
+        assert self.ram[0x00C0] == 2, 'expected game type menu, got {}'.format(self.ram[0x00C0])
+        # Game Type Menu
+        if self._b_type:
+            self._frame_advance(BUTTON_MAP["right"])
+        self._frame_advance(BUTTON_MAP["NOOP"])
+        self._frame_advance(BUTTON_MAP["start"])
+        
+        # Level Select Screen
+        if level_9 or level_19:
+            # Move to bottom right option (level 9)
+            for _ in range(6):
+                self._frame_advance(BUTTON_MAP["NOOP"])
+                self._frame_advance(BUTTON_MAP["right"])
+            self._frame_advance(BUTTON_MAP["NOOP"])
+            self._frame_advance(BUTTON_MAP["down"])
+            if level_19:
+                self._frame_advance(BUTTON_MAP["A"])
+                self._frame_advance(BUTTON_MAP["A"] | BUTTON_MAP["start"])
+            else: 
                 self._frame_advance(BUTTON_MAP["NOOP"])
                 self._frame_advance(BUTTON_MAP["start"])
-                self._frame_advance(BUTTON_MAP["NOOP"])
-            else:
-                # Level Select Screen - select level 9
-                for _ in range(2):
-                    # Select bottom right option (level nine)
-                    self._frame_advance(BUTTON_MAP["NOOP"])
-                    for __ in range(8):
-                        self._frame_advance(BUTTON_MAP["right"])
-                        self._frame_advance(BUTTON_MAP["NOOP"])
-                    self._frame_advance(BUTTON_MAP["down"])
-                    self._frame_advance(BUTTON_MAP["NOOP"])
-                # Start game
-                self._frame_advance(BUTTON_MAP["NOOP"])
-                self._frame_advance(BUTTON_MAP["start"])
-                self._frame_advance(BUTTON_MAP["NOOP"])
+        self._frame_advance(BUTTON_MAP["NOOP"])
 
     # MARK: nes-py API calls
 
@@ -335,7 +337,7 @@ class TetrisEnv(NESEnv):
     def _get_info(self):
         """Return the info after a step occurs."""
         return dict(
-            # score=self.get_score(),
+            score=self.get_score(),
             piece_count=self.get_piece_count(),
             lines=self.get_number_of_lines(),
         )

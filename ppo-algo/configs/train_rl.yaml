@@ -1,0 +1,29 @@
+
+exp_name: test
+
+total_episodes: 20000 # Total number of episodes to train for
+learning_starts: 1000 # Number of steps to collect transitions for before learning starts
+
+buffer_size: 100000
+device_name: mps # cpu, mps or cuda
+
+learning_rate: 0.0001
+batch_size: 32
+gamma: 0.99 # Discount factor
+
+start_e: 1.0 # Starting epsilon value
+end_e: 0.05 # Ending epsilon value
+exploration_fraction: 0.1 # Fraction of episodes to decay over
+
+seed: 42
+torch_deterministic: false
+
+train_frequency: 4
+target_network_update_frequency: 1000
+tau: 0.9
+
+save_model: true
+backup_frequency: 5000
+
+pretrain: false
+pretrained_model_path: runs/tetris__test__42__1694445084/test.cleanrl_model
