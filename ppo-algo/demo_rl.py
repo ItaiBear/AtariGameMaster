@@ -30,27 +30,6 @@ def make_env(args):
     env = BinaryBoard(env)
     return env
 
-def generate_action_sequence(actions, counts):
-    assert len(actions) == len(counts), "actions and counts must be the same length"
-    i = 1
-    while i < len(actions):
-        if actions[i] == actions[i-1]:
-            counts[i] = int(counts[i]) + int(counts[i-1])
-            actions.pop(i-1)
-            counts.pop(i-1)
-        else:
-            i += 1
-    sequence = []
-    for action, count in zip(actions, counts):
-        if action == 'left' or action == 'right':
-            sequence += [action, 'noop'] * int(count)
-        elif action == 'clockwise' or action == 'counterclockwise':
-            sequence += [action, 'noop'] * (int(count) % 4)
-        elif action == 'down':
-            sequence += [action] * ((int(count) * 2) + 1)
-        else:
-            print(f"Invalid action: {action} with count: {count}, skipping")
-    return sequence
 
 MODIFIED_MOVEMENT = ['noop', 'clockwise', 'counterclockwise', 'right', 'left', 'down']
 
@@ -67,7 +46,7 @@ def main():
     #model_path = "runs/tetris__test__42__1694439794/test_10000.backup"
     #model_path = "runs/tetris__test__42__1694445084/test.cleanrl_model"
     #model_path = "runs/tetris__test__42__1694449993/test.cleanrl_model"
-    model_path = "runs/tetris__test__42__1694519568/checkpoints/test_1160000.backup"
+    model_path = "runs/tetris__test__42__1694519568/checkpoints/test_620000.backup"
     network = TetrisNetwork((20, 10)).to(device)
     network.load_state_dict(torch.load(model_path, map_location=device))
     network.eval()
@@ -120,9 +99,7 @@ def main():
             
             actions = best_state.get_action_sequence()
             states = best_state.get_state_sequence()
-            #print(f"clean actions: {clean_actions}")
-            #actions = generate_action_sequence(clean_actions, [1] * len(clean_actions))
-            #actions = ['noop'] + actions
+
             total_actions += len(actions)
             print(f"actions: {actions}")
             

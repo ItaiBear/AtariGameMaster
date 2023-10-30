@@ -1,8 +1,8 @@
 
-env: TetrisA-v0
+env: TetrisA-v1
 exp_name: game
 
-total_episodes: 20000 # Total number of episodes to train for
+total_episodes: 10000 # Total number of episodes to train for
 learning_starts: 1000 # Number of steps to collect transitions for before learning starts
 
 buffer_size: 100000
@@ -12,9 +12,9 @@ learning_rate: 0.0001
 batch_size: 32
 gamma: 0.99 # Discount factor
 
-start_e: 1.0 # Starting epsilon value
+start_e: 0.8 # Starting epsilon value
 end_e: 0.05 # Ending epsilon value
-exploration_fraction: 0.1 # Fraction of episodes to decay over
+exploration_fraction: 0.05 # Fraction of episodes to decay over
 
 seed: 42
 torch_deterministic: false
@@ -26,7 +26,12 @@ tau: 0.9
 save_model: true
 backup_frequency: 5000
 
-pretrain: false
-pretrained_model_path: runs/tetris__test__42__1694445084/test.cleanrl_model
+pretrain: true
+pretrained_model_path: runs/tetris__test__42__1694519568/checkpoints/test_620000.backup
 
 record_video: true # Record video of the agent's performance
+
+track: true # Log results to Weights & Biases
+wandb_project_name: Per-Block-Tetris-Agent
+wandb_entity: itaibear
+
