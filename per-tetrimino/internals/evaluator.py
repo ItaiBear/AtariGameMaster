@@ -2,6 +2,16 @@ import numpy as np
 
 
 class Evaluator:
+    '''
+    class to evaluate a board state based on the following features:
+    - total lines cleared
+    - total lock height
+    - total well cells
+    - total column holes
+    - total column transitions
+    - total row transitions
+    given a set of weights for each feature, the score is calculated as the weighted sum of each feature
+    '''
     def __init__(self, weights=None):
         if weights is None:
             self.weights = {

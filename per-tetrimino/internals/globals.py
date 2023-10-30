@@ -1,5 +1,6 @@
 
 
+# Mapping of tetrimino IDs to their orientations
 tetriminos = {
     "T": ["Tu", "Tr", "Td", "Tl"],
     "J": ["Jl", "Ju", "Jr", "Jd"],
@@ -39,6 +40,7 @@ orientations = { # (horizontal, vertical)
     "Ih": [(-2, 0), (-1, 0), (0, 0), (1, 0)],
 }
 
+# Mapping of tetrimino IDs to their spawn orientations
 spawn_orientations = {
     "T": "Td",
     "J": "Jd",
@@ -52,7 +54,7 @@ spawn_orientations = {
 shift_actions = ['left', 'right']
 rotation_actions = ['clockwise', 'counterclockwise']
 
-
+# Mapping of level to frames per drop
 def frames_per_drop(level: int) -> int:
     level_to_frames = {0: 48, 1: 43, 2: 38, 3: 33, 4: 28,
                         5: 23, 6: 18, 7: 13, 8: 8, 9: 6}

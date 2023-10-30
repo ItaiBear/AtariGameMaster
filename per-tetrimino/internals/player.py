@@ -7,6 +7,10 @@ import numpy as np
 
 
 class Player:
+    '''
+    This class represents a player which plays tetris by using a BFS 
+    to find the best state to place the current tetrimino
+    '''
     def __init__(self, board=None):
         if board is None:
             board = np.zeros((20, 10), dtype=np.int8)
@@ -15,21 +19,20 @@ class Player:
         self.visited_states = None
         
     def did_visit_state(self, state: State) -> bool:
+        # Check if the state has already been visited during the BFS
         orientation_idx = tetriminos[state.piece].index(state.orientation)
         if self.visited_states[state.x, state.y, orientation_idx]: # Already visited
-            #print(f"Already visited at state: {state.x}, {state.y}, {state.piece}, {state.orientation}")
             return True
         self.visited_states[state.x, state.y, orientation_idx] = True
         return False
         
-    def bfs(self, tetrimino, fall_timer=0) -> list[State]:
+    def bfs(self, tetrimino: str, fall_timer=0) -> list[State]:
         self.visited_states = np.zeros((self.tetris.width, self.tetris.height, 4), dtype=bool)
         spawn_state = State(5, 0, tetrimino, spawn_orientations[tetrimino], fall_timer=fall_timer)
-        #print(f"Spawn state: {spawn_state.x}, {spawn_state.y}, {spawn_state.piece}, {spawn_state.orientation}")
-        if not self.tetris.is_valid_state(spawn_state):
-            # Game over
-            #print("Game over")
+        
+        if not self.tetris.is_valid_state(spawn_state):   # Game over
             return []
+        
         locked_states = []
         states_queue = deque([spawn_state])
         while states_queue:
@@ -86,9 +89,8 @@ class Player:
                 
         return locked_states
     
-    def find_best_state(self, tetrimino, fall_timer=0) -> tuple[State, float, bool]:
+    def find_best_state(self, tetrimino: str, fall_timer=0) -> tuple[State, float, bool]:
         locked_states = self.bfs(tetrimino, fall_timer)
-        #print(f"locked states: {len(locked_states)}")
 
         if not locked_states:
             return None, None, True
@@ -98,9 +100,11 @@ class Player:
         for state in locked_states:
             board, lines_cleared, lock_height = self.tetris.get_updated_board(state)
             score = self.evaluator.evaluate(board, lines_cleared, lock_height)
+            
             if score > best_score:
                 best_state = state
                 best_score = score
+                
         return best_state, best_score, False
     
     def set_level(self, level: int) -> None:

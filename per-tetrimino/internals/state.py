@@ -1,6 +1,10 @@
 from .globals import tetriminos
 
 class State:
+    '''
+    Represents the state of the active tetrimino in a single frame of the game
+    Performs actions on the state to get the next state
+    '''
     frames_per_drop = 10
     
     def __init__(self, x, y, piece, orientation, action=None, predecessor=None, fall_timer=0, auto_repeat=0):
@@ -16,9 +20,9 @@ class State:
         self.auto_repeat: int = auto_repeat
         self.drop: bool = False
         self.down_startup: bool = True
-        #print(f"frames per drop: {State.frames_per_drop}")
         
     def get_should_drop(self):
+        # Returns whether the piece should automatically drop and the fall timer for the next state
         fall_timer = self.fall_timer + 1
         
         if not self.action == 'down':
@@ -95,6 +99,7 @@ class State:
         return states
     
     def get_action_sequence(self) -> list[str]:
+        # Returns the sequence of actions that led to this state
         actions = []
         state = self
         while state.predecessor:
@@ -103,6 +108,7 @@ class State:
         return actions[::-1]
     
     def get_state_sequence(self) -> list['State']:
+        # Returns the sequence of states that led to this state
         states = []
         state = self
         while state.predecessor:
