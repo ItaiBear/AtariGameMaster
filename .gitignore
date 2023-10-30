@@ -3,12 +3,17 @@
 # Tensorboard logs
 tetris-dqn/runs/
 tetris-dqn/videos/
-ppo-alog/runs/
+ppo-algo/runs/
+ppo-algo/wandb/
+ppo-algo/videos/
 dataset_creation/mps_to_cpu/toNoam
 dataset_creation/mps_to_cpu/toNoamCPU
 dataset_creation/converted_datasets
 
-\~\$*.pptx # ignore powerpoint temp files
+# Ignore Microsoft Office temporary files
+~$*
+
+
 *.pkl
 # Python files
 __py*__
@@ -182,3 +187,4 @@ dmypy.json
 *.tmp
 *.swp-h
 *.swp-l
+dataset_creation/mps_to_cpu/9-active-4stacked-v1-70
