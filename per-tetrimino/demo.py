@@ -1,3 +1,7 @@
+"""
+Script that plays a game of Tetris on the emulator using the default evaluator function.
+"""
+
 import gymnasium as gym
 from nes_py.wrappers import JoypadSpace
 from gym_tetris.actions import SIMPLE_MOVEMENT

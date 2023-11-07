@@ -3,7 +3,9 @@ from nes_py.wrappers import JoypadSpace
 from gym_tetris.actions import SIMPLE_MOVEMENT
 from wrappers import BinaryBoard, FrameSkipEnv, ExpandDim, FrameStack
 
-from ppo import Tetris, State, Player
+from internals.player import Player
+from internals.tetris import Tetris
+from internals.state import State
 
 import argparse
 import numpy as np
@@ -30,27 +32,6 @@ def make_env(args, framestack=16):
     env = minari.DataCollectorV0(env, record_infos=True, max_buffer_steps=100000)
     return env
 
-def generate_action_sequence(actions, counts):
-    assert len(actions) == len(counts), "actions and counts must be the same length"
-    i = 1
-    while i < len(actions):
-        if actions[i] == actions[i-1]:
-            counts[i] = int(counts[i]) + int(counts[i-1])
-            actions.pop(i-1)
-            counts.pop(i-1)
-        else:
-            i += 1
-    sequence = []
-    for action, count in zip(actions, counts):
-        if action == 'left' or action == 'right':
-            sequence += [action, 'noop'] * int(count)
-        elif action == 'clockwise' or action == 'counterclockwise':
-            sequence += [action, 'noop'] * (int(count) % 4)
-        elif action == 'down':
-            sequence += [action] * ((int(count) * 2) + 1)
-        else:
-            print(f"Invalid action: {action} with count: {count}, skipping")
-    return sequence
 
 MODIFIED_MOVEMENT = ['noop', 'clockwise', 'counterclockwise', 'right', 'left', 'down']
 
@@ -88,9 +69,7 @@ def play_episode(env, arg):
             best_state, best_reward, should_be_done = player.find_best_state(current_piece, info['fall_timer'])
             actions = best_state.get_action_sequence()
             states = best_state.get_state_sequence()
-            #print(f"clean actions: {clean_actions}")
-            #actions = generate_action_sequence(clean_actions, [1] * len(clean_actions))
-            #actions = ['noop'] + actions
+
             total_actions += len(actions)
             print(f"actions: {actions}")
             

@@ -2,5 +2,9 @@ gymnasium==0.29.1
 numpy
 torch>=2.0.0
 pygame==2.5
+hydra-core
+minari
+tensorboard
+wandb
 -e ../tetris-environments/gymnasium-nes-py
 -e ../tetris-environments/gymnasium-tetris

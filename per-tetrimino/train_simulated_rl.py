@@ -1,12 +1,17 @@
+"""
+Script for training an RL agent to play in the Per-Tetrimino Gameplay of Tetris.
+Trains on a simulation that mimicks the Tetris NES environment. Reward is based on the evaluator function.
+"""
+
 import random
 from models import TetrisNetwork
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from internals.player import Player
 from internals.globals import tetriminos
 from internals.evaluator import Evaluator
+from internals.rl_utils import linear_schedule, update_target_model
 import numpy as np
 from collections import deque
 from torch.utils.tensorboard import SummaryWriter
@@ -27,25 +32,28 @@ def select_state_idx(net, locked_states, epsilon, device=torch.device('cpu')) ->
             state_idx = torch.argmax(values).cpu().numpy()
         return state_idx
     
-# Function to sync target network
-def update_target_model(net, target_net, tau=1.0):
-    for param, target_param in zip(net.parameters(), target_net.parameters()):
-        target_param.data.copy_(
-            tau * param.data + (1.0 - tau) * target_param.data
-        )
-        
-def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
-    slope = (end_e - start_e) / duration
-    return max(slope * t + start_e, end_e)
 
 def train():
     input_dim = (20, 10)
     
     # Load the config YAML file
-    args = OmegaConf.load(os.path.join('configs', 'train_rl.yaml'))
+    args = OmegaConf.load(os.path.join('configs', 'train_simulated_rl.yaml'))
     run_name = f"tetris__{args.exp_name}__{args.seed}__{int(time.time())}"
     os.makedirs(f"runs/{run_name}/checkpoints", exist_ok=True)
     
+    if args.track:
+        import wandb
+
+        wandb.init(
+            project=args.wandb_project_name,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=OmegaConf.to_container(args, resolve=True),
+            name=run_name,
+            monitor_gym=False,
+            save_code=True,
+        )
+
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
@@ -84,6 +92,7 @@ def train():
         player = Player()
         episodic_reward = 0
         episodic_length = 0
+        episodic_lines = 0
         done = False
         while True:
             global_step += 1
@@ -94,10 +103,12 @@ def train():
             locked_states = player.bfs(tetrimino)
             
             if not locked_states:   # episode is over
-                tqdm.write(f"global_step={global_step}, episodic_return={episodic_reward}")
+                tqdm.write(f"global_step={global_step}, episodic_return={episodic_reward}, episodic_length={episodic_length}")
                 writer.add_scalar("charts/episodic_return", episodic_reward, episode)
                 writer.add_scalar("charts/episodic_length", episodic_length, episode)
-                writer.add_scalar("charts/epsilon", epsilon, global_step)
+                writer.add_scalar("charts/episodic_pieces", episodic_length, episode)
+                writer.add_scalar("charts/episodic_lines", episodic_lines, episode)
+                writer.add_scalar("charts/epsilon", epsilon, episode)
                 break
             
             num_states = len(locked_states)
@@ -115,6 +126,7 @@ def train():
 
             best_state_idx = select_state_idx(network, boards, epsilon, device)
             best_state = locked_states[best_state_idx]
+            episodic_lines += cleared_lines[best_state_idx]
             player.tetris.place_state(best_state)
             reward = evaluator.evaluate(player.tetris.board, cleared_lines[best_state_idx], piece_height[best_state_idx])
             reward = reward / 10000

@@ -1,3 +1,7 @@
+"""
+Script that plays a simulation game of Tetris, using the default evaluator function.
+"""
+
 import numpy as np
 
 from internals.player import Player
