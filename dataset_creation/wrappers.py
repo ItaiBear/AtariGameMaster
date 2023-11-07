@@ -2,7 +2,6 @@ import gymnasium as gym
 import numpy as np
 from collections import deque
 from gymnasium import spaces
-import torch
 
 class CropObservation(gym.ObservationWrapper, gym.utils.RecordConstructorArgs):
     def __init__(self, env: gym.Env, BOX: tuple):
