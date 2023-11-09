@@ -45,14 +45,10 @@ def main():
     
     player = Player()
     
-    #model_path = "runs/tetris__test__42__1694433043/test_35000.backup"
-    #model_path = "runs/tetris__test__42__1694392640/test_210000.backup"
-    #model_path = "runs/tetris__test__42__1694439794/test_10000.backup"
-    #model_path = "runs/tetris__test__42__1694445084/test.cleanrl_model"
-    #model_path = "runs/tetris__test__42__1694449993/test.cleanrl_model"
-    model_path = "runs/tetris__test__42__1694519568/checkpoints/test_620000.backup"
+    if args.model_path is None:
+        args.model_path = "notable-runs/tetris__test__42__1694519568/checkpoints/test_620000.backup"
     network = TetrisNetwork((20, 10)).to(device)
-    network.load_state_dict(torch.load(model_path, map_location=device))
+    network.load_state_dict(torch.load(args.model_path, map_location=device))
     network.eval()
     
     total_reward = 0
