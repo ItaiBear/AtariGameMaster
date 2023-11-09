@@ -46,7 +46,7 @@ def main():
     player = Player()
     
     if args.model_path is None:
-        args.model_path = "notable-runs/tetris__test__42__1694519568/checkpoints/test_620000.backup"
+        args.model_path = "notable-runs/tetris__test__42__1694519568/checkpoints/best_checkpoint_620000.model"
     network = TetrisNetwork((20, 10)).to(device)
     network.load_state_dict(torch.load(args.model_path, map_location=device))
     network.eval()
