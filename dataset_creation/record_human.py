@@ -1,3 +1,8 @@
+"""
+Script that records a human playing a game of Tetris on the emulator.
+Uses the Minari tool.
+"""
+
 from nes_py.wrappers import JoypadSpace
 import gym_tetris
 
@@ -21,23 +26,24 @@ _NOP = 0
 def argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', '-E', type=str, default='TetrisA-v0')
-    parser.add_argument('--name', '-n', type=str, default='TetrisAfast-v0-itai-v0')
+    parser.add_argument('--name', '-n', type=str, default='TetrisA-v0')
     parser.add_argument('--episodes', '-e', type=int, default=1)
     parser.add_argument('--seed', '-s', type=int, default=1)
     return parser.parse_args()
 
 args = argparser()
 
-SCALE = 2
+SCALE = 2   # scale the screen shown to the human player by this factor
 
 INNER_SKIP = 1
 OUTER_SKIP = 1
 framestack = 4
 
+# env_h is the environment shown to the human player without altering the observations
 env_h = gym.make(args.env, render_mode=None)
 env_h = JoypadSpace(env_h, SIMPLE_MOVEMENT)
-env_h = minari.DataCollectorV0(env_h, record_infos=True, max_buffer_steps=100000)
 
+# env is the environment used to collect the data, with all the wrappers applied
 env = gym.make(args.env, render_mode=None)
 env = JoypadSpace(env, SIMPLE_MOVEMENT)
 env = BinaryBoard(env)
@@ -45,22 +51,17 @@ env = FrameSkipEnv(env, INNER_SKIP)
 env = ExpandDim(env)
 env = FrameStack(env, framestack)
 
-env = minari.DataCollectorV0(env, record_infos=True, max_buffer_steps=100000)
+env = minari.DataCollectorV0(env, record_infos=True, max_buffer_steps=100000) # The minari wrapper that collects the data
 
 
 checkpoint_interval = 1
 dataset_name = args.name
-dataset_name_split = args.name.split("-")
-dataset_name_split[-2] += "_h"
-dataset_name_h = "-".join(dataset_name_split)
 dataset = None
-dataset_h = None
 
 local_datasets = minari.list_local_datasets()
-if dataset_name in local_datasets:
+if dataset_name in local_datasets: # if the minari dataset already exists, load it and append to it
     dataset = minari.load_dataset(dataset_name)
-#if dataset_name_h in local_datasets:
-#    dataset_h = minari.load_dataset(dataset_name_h)
+
     
 seed = random.randint(0, 2**32 - 1) if args.seed is None else args.seed
     
@@ -136,14 +137,7 @@ for episode_id in range(args.episodes):
         else:
             dataset.update_dataset_from_collector_env(env)
             
-        # if dataset_h is None:
-        #     dataset_h = minari.create_dataset_from_collector_env(dataset_id=dataset_name_h,
-        #                                                          collector_env=env_h,
-        #                                                          algorithm_name="Human-Demonstration",
-        #                                                          author="Itai Bear",
-        #                                                          author_email="itai.bear1@gmail.com")
-        # else:
-        #     dataset_h.update_dataset_from_collector_env(env_h)
+
             
 viewer.close()            
 env.close()

@@ -5,19 +5,25 @@ from collections import defaultdict
 import pickle
 
 
-convert_to_binary = False
-only_active_actions = False
-only_rewarding_actions = False
-only_changing_states = False 
-add_to_dataset = False
-remove_framestack = True
-frame_stack = 4
+append_to_dataset = False       # if true, load a predefined dataset and append to it
+
+
+convert_to_binary = False       # if true, convert the observations from 84x84 grayscale board to binary
+only_active_actions = False     # if true, only keep transitions which don't have a noop action
+only_changing_states = False    # if true, only keep transitions with some change in the observation
+remove_framestack = True        # if true, remove the framestack dimension
+frame_stack = 4                 # number of frames to stack together (restack after removing framestack dimension)
 
 
 
 def argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', '-d', type=str, default='TetrisA-v0-itai-v0')
+    parser.add_argument('--convert_to_binary', '-b', action='store_true', default=False)
+    parser.add_argument('--only_active_actions', '-a', action='store_true', default=False)
+    parser.add_argument('--only_changing_states', '-c', action='store_true', default=False)
+    parser.add_argument('--remove_framestack', '-f', action='store_true', default=False)
+    parser.add_argument('--frame_stack', '-s', type=int, default=4)
     return parser.parse_args()
 
 
@@ -27,18 +33,8 @@ if args.dataset not in minari.list_local_datasets():
 
 dataset = minari.load_dataset(args.dataset)
 
-if args.dataset == "TetrisA-v0-itai-v2":
-    split_datasets = minari.split_dataset(dataset, sizes=[1,1])
 
-    dataset1 = split_datasets[0]
-    dataset2 = split_datasets[1]
-
-    if dataset1.total_steps > dataset2.total_steps:
-        dataset = dataset1
-    else:
-        dataset = dataset2
-
-if add_to_dataset:
+if append_to_dataset:
     # load the dataset
     path = f'converted_datasets/TetrisA-v0-itai-v23_4.pkl'
     if not path.endswith("pkl"):
@@ -47,6 +43,7 @@ if add_to_dataset:
         expert_trajs = pickle.load(file)
 else:
     expert_trajs = defaultdict(list)
+    
 for episode in dataset.iterate_episodes():
     print(f'EPISODE ID {episode.id}')
     states = episode.observations
@@ -73,8 +70,8 @@ for episode in dataset.iterate_episodes():
         
     if remove_framestack:
         states = states[:, -1, np.newaxis, :, :]
-    
         print("removed framestack states shape: ", states.shape)
+        
     if only_changing_states:
         # only keep states that are different from the next state
         changing_states_mask = np.full(states.shape[0], False)
@@ -88,11 +85,9 @@ for episode in dataset.iterate_episodes():
         rewards = rewards[changing_states_mask]
         dones = dones[changing_states_mask]
         length = np.sum(changing_states_mask)
-        
-        
+    
         print("only changing states shape: ", states.shape)
-        # print("first 2 states: ", states[:2])
-        # print("last 2 states: ", states[-2:])
+
     
     if frame_stack > 1:
         stacked_arr = np.empty((states.shape[0], frame_stack, *states.shape[-2:]))
@@ -112,15 +107,11 @@ for episode in dataset.iterate_episodes():
         states = stacked_arr
         print("framestack states shape: ", states.shape)
 
-    # if only_rewarding_actions:
-    #     rewarding_steps = rewards >= 10
-    # else:
-    #     rewarding_steps = np.ones_like(rewards, dtype=bool)
     if only_active_actions:
         active_steps = actions != 0
     else:
         active_steps = np.ones_like(actions, dtype=bool)
-    print(actions[active_steps][:10])
+
     expert_trajs["states"].append(states[:-1][active_steps])
     expert_trajs["next_states"].append(states[1:][active_steps])
     expert_trajs["actions"].append(actions[active_steps])
@@ -130,10 +121,7 @@ for episode in dataset.iterate_episodes():
     expert_trajs["lengths"].append(np.sum(active_steps))
     print("final episode length: ", np.sum(active_steps))
 
-#states, actions, rewards, dones, lengths = np.array(states), np.array(actions), np.array(rewards), np.array(dones), np.array(lengths)
 
-#create_dataset(states, actions, rewards, dones, lengths, f'converted_datasets/{episode.id}.npy')
- 
 print('Final size of Replay Buffer: {}'.format(sum(expert_trajs["lengths"])))
 with open(f'converted_datasets/{args.dataset}_{len(expert_trajs["lengths"])}.pkl', 'wb') as f:
     pickle.dump(expert_trajs, f)

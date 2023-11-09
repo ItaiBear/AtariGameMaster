@@ -1,3 +1,7 @@
+"""
+Script to replay existing minari datasets
+"""
+
 import gymnasium as gym
 import minari
 import argparse

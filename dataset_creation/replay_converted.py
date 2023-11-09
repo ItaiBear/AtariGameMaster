@@ -1,3 +1,7 @@
+"""
+Script to replay a converted dataset. (converted by dataset-creation/minari_to_dict.py)
+"""
+
 import argparse
 import pickle
 import numpy as np
@@ -6,7 +10,7 @@ import cv2
 def argparser():
     args = argparse.ArgumentParser()
     args.add_argument('--dataset', '-d', type=str, default='TetrisA-v0')
-    args.add_argument('--scale', '-s', type=int, default=10)
+    args.add_argument('--scale', '-s', type=int, default=10) # scale the image by this factor
     return args.parse_args()
 
 def main():
