@@ -9,7 +9,7 @@ import cv2
 
 def argparser():
     args = argparse.ArgumentParser()
-    args.add_argument('--dataset', '-d', type=str, default='TetrisA-v0')
+    args.add_argument('dataset', type=str)
     args.add_argument('--scale', '-s', type=int, default=10) # scale the image by this factor
     return args.parse_args()
 

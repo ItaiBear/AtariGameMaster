@@ -1,8 +1,13 @@
+"""
+Script to convert a Minari dataset to a pickled dictionary of numpy arrays, which can be used in the IQ-Learn framework.
+"""
+
 import minari
 import argparse
 import numpy as np
 from collections import defaultdict
 import pickle
+import os
 
 
 append_to_dataset = False       # if true, load a predefined dataset and append to it
@@ -18,12 +23,12 @@ frame_stack = 4                 # number of frames to stack together (restack af
 
 def argparser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', '-d', type=str, default='TetrisA-v0-itai-v0')
-    parser.add_argument('--convert_to_binary', '-b', action='store_true', default=False)
-    parser.add_argument('--only_active_actions', '-a', action='store_true', default=False)
-    parser.add_argument('--only_changing_states', '-c', action='store_true', default=False)
-    parser.add_argument('--remove_framestack', '-f', action='store_true', default=False)
-    parser.add_argument('--frame_stack', '-s', type=int, default=4)
+    parser.add_argument('dataset', type=str)
+    parser.add_argument('--convert-to-binary', '-b', action='store_true', default=False)
+    parser.add_argument('--only-active-actions', '-a', action='store_true', default=False)
+    parser.add_argument('--only-changing-states', '-c', action='store_true', default=False)
+    parser.add_argument('--remove-framestack', '-f', action='store_true', default=False)
+    parser.add_argument('--frame-stack', '-s', type=int, default=4)
     return parser.parse_args()
 
 
@@ -58,7 +63,7 @@ for episode in dataset.iterate_episodes():
     print("length: ", length)
 
     
-    if convert_to_binary:
+    if args.convert_to_binary:
         BOARD_SHAPE = 20, 10
         y_step = 84 // BOARD_SHAPE[0]
         x_step = 84 // BOARD_SHAPE[1]
@@ -68,11 +73,11 @@ for episode in dataset.iterate_episodes():
         cropped[cropped != 1] = 0.0
         states = cropped.astype(np.float32)
         
-    if remove_framestack:
+    if args.remove_framestack:
         states = states[:, -1, np.newaxis, :, :]
         print("removed framestack states shape: ", states.shape)
         
-    if only_changing_states:
+    if args.only_changing_states:
         # only keep states that are different from the next state
         changing_states_mask = np.full(states.shape[0], False)
         changing_states_mask[:-1] = np.any(states[1:] != states[:-1], axis=(1, 2, 3))
@@ -89,12 +94,12 @@ for episode in dataset.iterate_episodes():
         print("only changing states shape: ", states.shape)
 
     
-    if frame_stack > 1:
-        stacked_arr = np.empty((states.shape[0], frame_stack, *states.shape[-2:]))
+    if args.frame_stack > 1:
+        stacked_arr = np.empty((states.shape[0], args.frame_stack, *states.shape[-2:]))
 
         for i in range(states.shape[0]):
             # Get the frames to stack.
-            frames_to_stack = np.squeeze(states[max(0, i-(frame_stack-1)):i+1])
+            frames_to_stack = np.squeeze(states[max(0, i-(args.frame_stack-1)):i+1])
             
             num_frames = frames_to_stack.shape[0]
             
@@ -102,13 +107,14 @@ for episode in dataset.iterate_episodes():
             stacked_arr[i, :num_frames] = frames_to_stack[::-1]  
             
             # If there are less than num_frames_to_stack frames, duplicate the earliest frame.
-            if num_frames < frame_stack:
-                stacked_arr[i, num_frames:] = np.squeeze(np.tile(frames_to_stack[-1], (frame_stack-num_frames, 1, 1, 1)))
+            if num_frames < args.frame_stack:
+                stacked_arr[i, num_frames:] = np.squeeze(np.tile(frames_to_stack[-1], (args.frame_stack-num_frames, 1, 1, 1)))
         states = stacked_arr
         print("framestack states shape: ", states.shape)
 
-    if only_active_actions:
+    if args.only_active_actions:
         active_steps = actions != 0
+        print("active steps: ", np.sum(active_steps))
     else:
         active_steps = np.ones_like(actions, dtype=bool)
 
@@ -123,6 +129,7 @@ for episode in dataset.iterate_episodes():
 
 
 print('Final size of Replay Buffer: {}'.format(sum(expert_trajs["lengths"])))
+os.makedirs('converted_datasets', exist_ok=True)
 with open(f'converted_datasets/{args.dataset}_{len(expert_trajs["lengths"])}.pkl', 'wb') as f:
     pickle.dump(expert_trajs, f)
 exit()   

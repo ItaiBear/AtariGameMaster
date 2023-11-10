@@ -15,13 +15,13 @@ from pyglet import clock
 import numpy as np
 import cv2
 
-convert_to_binary = True
+convert_to_binary = False
 
 
 def argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', '-E', type=str, default='TetrisA-v0')
-    parser.add_argument('--dataset', '-n', type=str, default='TetrisA-v0-itai-v0')
+    parser.add_argument('dataset', type=str)
     parser.add_argument('--seed', '-s', type=int, default=1)
     parser.add_argument('--skip', '-k', type=int, default=1)
     return parser.parse_args()

@@ -26,7 +26,7 @@ _NOP = 0
 def argparser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', '-E', type=str, default='TetrisA-v0')
-    parser.add_argument('--name', '-n', type=str, default='TetrisA-v0')
+    parser.add_argument('--name', '-n', type=str, default='TetrisA-test-v0')
     parser.add_argument('--episodes', '-e', type=int, default=1)
     parser.add_argument('--seed', '-s', type=int, default=1)
     return parser.parse_args()
