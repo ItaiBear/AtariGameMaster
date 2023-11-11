@@ -9,6 +9,7 @@ ppo-algo/videos/
 dataset_creation/mps_to_cpu/toNoam
 dataset_creation/mps_to_cpu/toNoamCPU
 dataset_creation/converted_datasets
+ImportantMilestones
 
 # Ignore Microsoft Office temporary files
 ~$*
