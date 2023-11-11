@@ -14,7 +14,6 @@ dataset_creation/converted_datasets
 ~$*
 
 
-*.pkl
 # Python files
 __py*__
 *.pyc
@@ -39,7 +38,7 @@ __py*__
 
 # Virtual environments
 venv/
-env/
+#env/
 *.venv
 
 # IDEs and editors

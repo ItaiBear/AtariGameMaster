@@ -1,0 +1,22 @@
+# @package _global_
+
+env:
+  name: TetrisA-v0
+  demo: TetrisA-active-stacked-v23_5.pkl
+  learn_steps: 1e6
+  eval_interval: 5e3
+  eps_steps: 10000
+  eps_window: 100
+  replay_mem: 100000
+  initial_mem: 5000
+
+expert:
+  demos: 5
+  subsample_freq: 1
+
+eval:
+  policy: #outputs/2023-07-27/18-46-12/results/1-active-4stacked-v1-90
+  threshold: 1000
+
+q_net:
+  _target_: agent.softq_models.TetrisQNetwork
