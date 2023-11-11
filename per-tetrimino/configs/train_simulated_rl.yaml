@@ -28,7 +28,7 @@ backup_frequency: 5000
 pretrain: false
 pretrained_model_path: runs/tetris__test__42__1694445084/test.cleanrl_model
 
-track: true # Log results to Weights & Biases
+track: false # Log results to Weights & Biases
 wandb_project_name: Per-Block-Tetris-Agent-Simulated
 wandb_entity: itaibear
 
