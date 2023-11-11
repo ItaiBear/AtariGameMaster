@@ -132,7 +132,6 @@ dmypy.json
 iq_learn/outputs
 iq_learn/wandb
 iq_learn/ignored-experts
-iq_learn/envs
 iq_learn/vis
 iq_learn/outputs-examples
 iq_learn/experts
