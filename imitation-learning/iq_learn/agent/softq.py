@@ -27,8 +27,8 @@ class SoftQ(object):
         self.target_net = hydra.utils.instantiate(agent_cfg.critic_cfg, args=args, device=self.device).to(
             self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
-        self.q_net = torch.compile(self.q_net, backend='aot_eager')
-        self.target_net = torch.compile(self.target_net, backend='aot_eager')
+        #self.q_net = torch.compile(self.q_net, backend='aot_eager')
+        #self.target_net = torch.compile(self.target_net, backend='aot_eager')
         self.critic_optimizer = Adam(self.q_net.parameters(), lr=agent_cfg.critic_lr,
                                      betas=agent_cfg.critic_betas)
         self.train()
