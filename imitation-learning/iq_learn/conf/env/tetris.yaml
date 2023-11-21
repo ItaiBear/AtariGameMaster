@@ -2,7 +2,7 @@
 
 env:
   name: TetrisA-v0
-  demo: TetrisA-active-stacked-v23_5.pkl
+  demo: TetrisA-test-v0_1.pkl
   learn_steps: 1e6
   eval_interval: 5e3
   eps_steps: 10000
@@ -11,7 +11,7 @@ env:
   initial_mem: 5000
 
 expert:
-  demos: 5
+  demos: 1
   subsample_freq: 1
 
 eval:
